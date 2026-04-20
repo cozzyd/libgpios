@@ -1,0 +1,8 @@
+libgpios is a mild convenience wrapper over the gpio_v2 Linux character device interface, meant to be a thinner layer than libgpiod, which you should probably be using instead.
+
+So why does this exist? Mostly because I wanted to avoid dynamic allocation on my part and a simpler interface, mostly for getting lines by label.
+
+One feature is that gpio chip labels are cached on first lookup so that subsequent calls to getting a line by label won't have to search for it again. If you think that your GPIO chips may change underneath you you may need to drop the cache. If you have a use case with a huge number of GPIO chips or labels, you may need to increase MAX_CHIPS or MAX_LABELS by passing e.g. -DMAX_CHIPS=32 to CFLAGS when compiling. If you need this label caching to be threadsafe, you'll want to add -pthreads to CFLAGS. 
+
+
+
