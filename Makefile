@@ -21,7 +21,7 @@ examples/%: examples/%.c $(LIB)
 	$(CC) $(CFLAGS) $< -o $@ -L. -lgpios
 
 clean:
-	rm -f $(OBJ) $(LIB) examples/blink
+	rm -f $(OBJ) $(LIB) examples/gpios-set examples/gpios-get
 
 
 install: $(LIB)
