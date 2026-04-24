@@ -38,7 +38,7 @@
 #define CHIP_PATH_PREFIX "/dev/gpiochip"
 
 
-char chip_labels[MAX_CHIPS][64];
+static char chip_labels[MAX_CHIPS][64];
 static unsigned nchipinfos = 0;
 /** 
  *
@@ -103,20 +103,21 @@ int gpios_build_cache()
   }
 
 #ifdef _REENTRANT
-  pthread_mutex_lock(&cache_mutex);
+  lock_guard(&cache_mutex);
   if (cache_built)  //check again in case another thread finished
     return 0;
 #endif
 
     DIR *dir = opendir("/dev");
-    if (!dir) return -errno;
+    if (!dir) 
+      return -errno;
 
     struct dirent *ent;
 
     while ((ent = readdir(dir)) != NULL) {
         if (strncmp(ent->d_name, "gpiochip", strlen("gpiochip")) != 0) continue;
 
-        static char chip_path[64];
+        char chip_path[64];
         snprintf(chip_path, sizeof(chip_path), "/dev/%s", ent->d_name);
 
         int chip_fd = open(chip_path, O_RDWR);
@@ -183,7 +184,7 @@ static const char * consumer_name = "";
 void gpios_set_consumer_name(const char * consumer)
 {
   if (consumer && *consumer) consumer_name = consumer;
-  else consumer = "";
+  else consumer_name = "";
 }
 
 
@@ -375,6 +376,7 @@ int gpios_wait_change (const gpios_line_t * line, gpios_event_t * event, float t
         if (elapsed >= timeout)
           break;
         timeout_ms -= elapsed*1000;
+        if (timeout_ms <=0) timeout_ms = 1;
         memcpy(&start,&now, sizeof(now));
       }
 
@@ -419,10 +421,10 @@ int gpios_wait_val(const gpios_line_t * line,bool val, gpios_event_t * event, fl
 
   bool initial_val;
   struct gpio_v2_line_event levent;
-  int nread = drain_events(line->fd, &levent);
+  drain_events(line->fd, &levent);
 
-  if (gpios_get_value(line, &initial_val))
-    return -errno;
+  int ret = gpios_get_value(line, &initial_val);
+  if (ret)   return ret;
 
   //already at wanted value, return immediately
   if (val == initial_val)
