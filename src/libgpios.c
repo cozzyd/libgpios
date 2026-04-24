@@ -14,7 +14,6 @@
 #include <time.h>
 #include <string.h>
 #include <limits.h>
-#include <pthread.h>
 #include <fcntl.h>
 #include <poll.h>
 #include <unistd.h>
@@ -25,7 +24,7 @@
 
 // If compiled with -pthread, _REENTRANT ought to be defined
 #ifdef _REENTRANT
-#include <pthreads.h>
+#include <pthread.h>
 #endif
 
 #ifndef MAX_CHIPS
@@ -59,8 +58,25 @@ static struct gpio_label gpio_labels[MAX_LABELS];
 static unsigned nlabels = 0;
 
 #ifdef _REENTRANT
-static pthread_mutex_t cache_mutex = PTHREAD_DEFAULT_INITIALIZER;
+static pthread_mutex_t cache_mutex = PTHREAD_MUTEX_INITIALIZER;
 static volatile bool cache_built;
+
+// helper macros so we can concat with line
+#define CONCAT2(X,Y) X##Y
+#define CONCAT(X,Y) CONCAT2(X,Y)
+
+#define cleanup(X) __attribute__((__cleanup__(X)))
+
+# define lock_guard(X)  \
+  pthread_mutex_t * CONCAT(__lockguard__,__LINE__) cleanup(__lock_guard_cleanup)= X; \
+  pthread_mutex_lock(X);
+
+//helper function for our lock_guard
+static void __lock_guard_cleanup(pthread_mutex_t ** m)
+{
+  pthread_mutex_unlock(*m);
+}
+
 #else
 static bool cache_built;
 #endif
@@ -70,16 +86,12 @@ void gpios_drop_cache()
 {
 	
 #ifdef _REENTRANT
-  pthread_mutex_lock(&cache_mutex);
+  lock_guard(&cache_mutex);
 #endif
 
   cache_built = false;
   nchipinfos = 0;
   nlabels = 0;
-
-#ifdef _REENTRANT
-  pthread_mutex_unlock(&cache_mutex);
-#endif
 
 }
 
