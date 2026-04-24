@@ -1,9 +1,20 @@
+/*
+ *  Implementation of ligpios 
+ *  Cosmin Deaconu <cozzyd@kicp.uchicago.edu>
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+
+
+
 #include "libgpios.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <errno.h>
@@ -224,17 +235,17 @@ int gpios_get_line_by_dev_offset(const char * dev, uint32_t offset, gpios_line_t
 
     if (flags & GPIOS_OUTPUT) {
         req.config.flags = GPIO_V2_LINE_FLAG_OUTPUT;
+        if (flags & GPIOS_OPEN_DRAIN) req.config.flags |= GPIO_V2_LINE_FLAG_OPEN_DRAIN;
+        if (flags & GPIOS_OPEN_SOURCE) req.config.flags |= GPIO_V2_LINE_FLAG_OPEN_SOURCE;
+
     } else {
         req.config.flags = GPIO_V2_LINE_FLAG_INPUT;
+        if (flags & GPIOS_POLL_RISING) req.config.flags |= GPIO_V2_LINE_FLAG_EDGE_RISING;
+        if (flags & GPIOS_POLL_FALLING) req.config.flags |= GPIO_V2_LINE_FLAG_EDGE_FALLING;
+        if (flags & GPIOS_POLL_CLOCK_REALTIME) req.config.flags |= GPIO_V2_LINE_FLAG_EVENT_CLOCK_REALTIME;
     }
 
-    if (flags & GPIOS_ACTIVE_LOW) {
-        req.config.flags = GPIO_V2_LINE_FLAG_ACTIVE_LOW;
-    } else {
-        req.config.flags = GPIO_V2_LINE_FLAG_ACTIVE_LOW;
-    }
-
-
+    if (flags & GPIOS_ACTIVE_LOW) req.config.flags |= GPIO_V2_LINE_FLAG_ACTIVE_LOW;
 
 
     if (ioctl(chip_fd, GPIO_V2_GET_LINE_IOCTL, &req) < 0) {
@@ -247,16 +258,16 @@ int gpios_get_line_by_dev_offset(const char * dev, uint32_t offset, gpios_line_t
     close(chip_fd);
 
     line->fd = req.fd;
-    line->offset = 0; // The line FD is a single-line request, its offset in the request context is 0
+    line->flags = flags;
     return 0;
 }
 
-int gpios_set_value(gpios_line_t *line, bool value) {
-    if (!line || line->fd < 0) return -EINVAL;
+int gpios_set_value(const gpios_line_t *line, bool value) {
+    if (!line || line->fd < 0 || !(line->flags & GPIOS_OUTPUT)) return -EINVAL;
 
     struct gpio_v2_line_values vals = {0};
-    vals.bits = value ? (1ULL << line->offset) : 0;
-    vals.mask = (1ULL << line->offset);
+    vals.bits = value ? 1 : 0;
+    vals.mask = 1;
 
     if (ioctl(line->fd, GPIO_V2_LINE_SET_VALUES_IOCTL, &vals) < 0) {
         return -errno;
@@ -264,23 +275,84 @@ int gpios_set_value(gpios_line_t *line, bool value) {
     return 0;
 }
 
-int gpios_get_value(gpios_line_t *line, bool *value) {
+int gpios_get_value(const gpios_line_t *line, bool *value) {
     if (!line || line->fd < 0 || !value) return -EINVAL;
 
     struct gpio_v2_line_values vals = {0};
-    vals.mask = (1ULL << line->offset);
+    vals.mask = 1;
 
     if (ioctl(line->fd, GPIO_V2_LINE_GET_VALUES_IOCTL, &vals) < 0) {
         return -errno;
     }
 
-    *value = (vals.bits & (1ULL << line->offset)) != 0;
+    *value = (vals.bits & (1)) != 0;
     return 0;
 }
 
 void gpios_release(gpios_line_t *line) {
-    if (line && line->fd >= 0) {
+    if (line && (line->fd >= 0) ) {
         close(line->fd);
         line->fd = -1;
     }
+}
+
+int gpios_wait_change (const gpios_line_t * line, gpios_event_t * event, float timeout)
+{
+
+  //Make sure we have the right flags set
+  if ( !line || (line->fd < 0) ||  ! (line->flags & (GPIOS_POLL_RISING | GPIOS_POLL_FALLING)))
+  {
+    return -EINVAL;
+  }
+
+  struct pollfd pfd =  { .fd = line->fd, .events = POLLPRI };
+  int timeout_ms = timeout * 1000;
+  errno = 0;
+  int ret = poll(&pfd, 1, timeout_ms);
+  if (ret) return -errno;
+
+  if (event)
+  {
+    struct gpio_v2_line_event levent = {0};
+    int nrd = 0;
+    while (nrd < (int) sizeof(levent))
+    {
+      int this_nrd = read(line->fd, ((char*)&levent) + nrd, sizeof(levent)-nrd);
+      if (this_nrd < 0)
+        return -errno;
+
+      nrd+=this_nrd;
+    }
+
+
+    event->when_is_realtime = !!(line->flags & GPIOS_POLL_CLOCK_REALTIME);
+    event->rising_edge = levent.id == GPIO_V2_LINE_EVENT_RISING_EDGE;
+    event->sequence_number = levent.seqno; 
+    event->when.tv_sec = levent.timestamp_ns / 1000000000;
+    event->when.tv_nsec = levent.timestamp_ns % 1000000000;
+
+  }
+
+  return 0;
+}
+
+int gpios_wait_val(const gpios_line_t * line,bool val, gpios_event_t * event, float timeout)
+{
+  if (!line || (line->fd < 0 ) || (val && !(line->flags & GPIOS_POLL_RISING)) || (!val && !(line->flags & GPIOS_POLL_FALLING)))
+    return -EINVAL;
+
+  bool initial_val;
+
+  if (gpios_get_value(line, &initial_val))
+    return -errno;
+
+  //already at wanted value, return immediately
+  if (val == initial_val)
+  {
+    if (event) memset(event, 0, sizeof(*event));
+    return 0;
+  }
+
+  //otherwise the next change MUST be the one we want ?
+  return gpios_wait_change(line, event, timeout);
 }
