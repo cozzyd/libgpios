@@ -17,6 +17,10 @@
 #include <time.h>
 #include <stdbool.h>
 
+#define GPIOS_VERSION_MAJOR 0
+#define GPIOS_VERSION_MINOR 1
+#define GPIOS_VERSION_REV   0
+
 /**
  * @brief Handle for a GPIO line.
  * Stores the file descriptor of the requested line and flags used to create it.
