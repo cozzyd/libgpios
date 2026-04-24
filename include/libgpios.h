@@ -24,8 +24,8 @@
  */
 typedef struct {
     int fd;
-    uint16_t flags;
-    uint8_t reserved[10];
+    uint32_t flags;
+    uint8_t reserved[8];
 } gpios_line_t;
 
 
