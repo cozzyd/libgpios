@@ -100,7 +100,7 @@ int gpios_wait_change(const gpios_line_t * line, gpios_event_t *event, float tim
  * @param line  the gpio line
  * @param val   the value to match
  * @param event  If a transition happens while poling, this will be filled if not NULL. If we return because we are already in the right state, this is zeroed if not NULL
- * @param timeout_ms timeout in econds before giving up (rounded to nearest ms)
+ * @param timeout_ms timeout in seconds before giving up (rounded to nearest ms)
  * @returns 0 on success , negative error code on failure
  */
 int gpios_wait_val(const gpios_line_t * line, bool val,  gpios_event_t *event, float timeout);
