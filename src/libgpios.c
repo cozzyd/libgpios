@@ -11,7 +11,9 @@
 #include "libgpios.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <string.h>
+#include <limits.h>
 #include <pthread.h>
 #include <fcntl.h>
 #include <poll.h>
@@ -296,6 +298,42 @@ void gpios_release(gpios_line_t *line) {
     }
 }
 
+
+static int drain_events(int fd, struct gpio_v2_line_event * levent)
+{
+
+  int flags = fcntl(fd, F_GETFL, 0);
+  fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+  int nread = 0;
+  while (true)
+  {
+    errno = 0;
+    int ret = read(fd, levent, sizeof(*levent));
+    if (ret > 0) 
+    {
+      nread++;
+      continue;
+    }
+    if (ret < 0 && errno == EINTR) continue;
+    break;
+  }
+
+  fcntl(fd, F_SETFL, flags);
+
+  return nread;
+
+}
+
+static void copy_event(const gpios_line_t * line, const struct gpio_v2_line_event * levent, gpios_event_t * event)
+{
+    event->when_is_realtime = !!(line->flags & GPIOS_POLL_CLOCK_REALTIME);
+    event->rising_edge = levent->id == GPIO_V2_LINE_EVENT_RISING_EDGE;
+    event->sequence_number = levent->seqno; 
+    event->when.tv_sec = levent->timestamp_ns / 1000000000;
+    event->when.tv_nsec = levent->timestamp_ns % 1000000000;
+}
+
+
 int gpios_wait_change (const gpios_line_t * line, gpios_event_t * event, float timeout)
 {
 
@@ -305,11 +343,35 @@ int gpios_wait_change (const gpios_line_t * line, gpios_event_t * event, float t
     return -EINVAL;
   }
 
-  struct pollfd pfd =  { .fd = line->fd, .events = POLLPRI };
-  int timeout_ms = timeout * 1000;
+  struct pollfd pfd =  { .fd = line->fd, .events = POLLIN };
+  int timeout_ms = timeout < 0 ? -1 :  timeout >= INT_MAX/1000 ? INT_MAX : timeout * 1000;
+  if (timeout && !timeout_ms) timeout_ms = 1;
+  struct timespec start;
+  if (timeout > 0) clock_gettime(CLOCK_MONOTONIC, &start);
   errno = 0;
-  int ret = poll(&pfd, 1, timeout_ms);
-  if (ret) return -errno;
+  while (true)
+  {
+    int ret = poll(&pfd, 1, timeout_ms);
+    if (ret > 0) break;
+    if (ret < 0 && errno == EINTR) 
+    {
+      if (timeout > 0)
+      {
+        struct timespec now;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        double elapsed = now.tv_sec - start.tv_sec + 1e-9*(now.tv_nsec - start.tv_nsec);
+        if (elapsed >= timeout)
+          break;
+        timeout_ms -= elapsed*1000;
+        memcpy(&start,&now, sizeof(now));
+      }
+
+
+      continue;
+    }
+    if (ret < 0) return -errno;
+    return -ETIMEDOUT;
+  }
 
   if (event)
   {
@@ -319,17 +381,19 @@ int gpios_wait_change (const gpios_line_t * line, gpios_event_t * event, float t
     {
       int this_nrd = read(line->fd, ((char*)&levent) + nrd, sizeof(levent)-nrd);
       if (this_nrd < 0)
-        return -errno;
+      {
+        if (errno != EINTR)
+        {
+          return -errno;
+        }
+        else continue;
+      }
 
       nrd+=this_nrd;
     }
 
 
-    event->when_is_realtime = !!(line->flags & GPIOS_POLL_CLOCK_REALTIME);
-    event->rising_edge = levent.id == GPIO_V2_LINE_EVENT_RISING_EDGE;
-    event->sequence_number = levent.seqno; 
-    event->when.tv_sec = levent.timestamp_ns / 1000000000;
-    event->when.tv_nsec = levent.timestamp_ns % 1000000000;
+    copy_event(line, &levent, event);
 
   }
 
@@ -342,6 +406,8 @@ int gpios_wait_val(const gpios_line_t * line,bool val, gpios_event_t * event, fl
     return -EINVAL;
 
   bool initial_val;
+  struct gpio_v2_line_event levent;
+  int nread = drain_events(line->fd, &levent);
 
   if (gpios_get_value(line, &initial_val))
     return -errno;
@@ -349,10 +415,14 @@ int gpios_wait_val(const gpios_line_t * line,bool val, gpios_event_t * event, fl
   //already at wanted value, return immediately
   if (val == initial_val)
   {
-    if (event) memset(event, 0, sizeof(*event));
+    if (event)
+    {
+      memset(event, 0, sizeof(*event));
+    }
+
     return 0;
   }
 
-  //otherwise the next change MUST be the one we want ?
+   //otherwise the next change MUST be the one we want ?
   return gpios_wait_change(line, event, timeout);
 }
