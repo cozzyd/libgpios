@@ -24,4 +24,10 @@ clean:
 	rm -f $(OBJ) $(LIB) examples/gpios-set examples/gpios-get
 
 
-install: $(LIB)
+install: $(LIB) examples
+	install -d $(DESTDIR)$(PREFIX)/lib
+	install -m 0755 $(LIB) $(DESTDIR)$(PREFIX)/lib/
+	install -d $(DESTDIR)$(PREFIX)/include
+	install -m 0644 include/libgpios.h $(DESTDIR)$(PREFIX)/include/
+	install -d $(DESTDIR)$(PREFIX)/bin
+	install -m 0755 examples/gpios-get examples/gpios-set $(DESTDIR)$(PREFIX)/bin/
