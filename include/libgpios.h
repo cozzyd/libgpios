@@ -115,4 +115,23 @@ int gpios_get_value(const gpios_line_t *line, bool *value);
  */
 void gpios_release(gpios_line_t *line);
 
+
+/**
+ * @brief Build label cache
+ * @returns 0 on seuccess
+ */
+int gpios_build_cache();
+
+/**
+ * @brief Drop label cache
+ */
+void gpios_drop_cache();
+
+/**
+ * @brief Set gpio consumer name
+ * @param Name to use when grabbing lines
+ */
+void gpios_set_consumer_name(const char * name);
+
+
 #endif // LIBGPIOS_H
