@@ -9,7 +9,7 @@ SRCREV = "${AUTOREV}"
 S = "${WORKDIR}/git"
 
 # Pass Yocto's CFLAGS through
-EXTRA_OEMAKE = "CFLAGS='${CFLAGS} -Iinclude -fPIC'"
+EXTRA_OEMAKE = ""
 
 
 do_install() {
