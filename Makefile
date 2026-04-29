@@ -1,4 +1,4 @@
-CFLAGS =-Wall -Wextra -Iinclude -O2 -fPIC
+CFLAGS?=-Wall -Wextra -Iinclude -O2 -fPIC
 LFLAGS=-shared
 LIB = libgpios.so
 SRC = src/libgpios.c
@@ -10,7 +10,7 @@ PREFIX?=/usr/local
 all: $(LIB) examples
 
 $(LIB): $(OBJ)
-	 $(CC) -o $@ $(LFLAGS) $^
+	 $(CC) -o $@ $(LFLAGS) $(LDFLAGS) $^
 
 src/%.o: src/%.c include/libgpios.h
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -18,7 +18,7 @@ src/%.o: src/%.c include/libgpios.h
 examples: examples/gpios-set examples/gpios-get
 
 examples/%: examples/%.c $(LIB)
-	$(CC) $(CFLAGS) $< -o $@ -L. -lgpios
+	$(CC) $(CFLAGS) $< -o $@ -L. -lgpios $(LDFLAGS)
 
 clean:
 	rm -f $(OBJ) $(LIB) examples/gpios-set examples/gpios-get
