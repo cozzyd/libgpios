@@ -1,6 +1,6 @@
 CFLAGS?=-Wall -Wextra -O2
-LFLAGS=-shared
 LIB = libgpios.so
+VERSIONED_LIB = libgpios.so.1
 SRC = src/libgpios.c
 OBJ = $(SRC:.c=.o)
 PREFIX?=/usr/local
@@ -9,8 +9,12 @@ PREFIX?=/usr/local
 
 all: $(LIB) examples
 
-$(LIB): $(OBJ)
-	 $(CC) -o $@ $(LFLAGS) $(LDFLAGS) $^
+$(VERSIONED_LIB): $(OBJ)
+	 $(CC) -shared $(LDFLAGS) -Wl,-soname,$@ -o $@ $^
+
+$(LIB): $(VERSIONED_LIB)
+	ln -sf  $(VERSIONED_LIB) $(LIB)
+
 
 src/%.o: src/%.c include/libgpios.h
 	$(CC) $(CFLAGS) -fPIC -Iinclude -c $< -o $@
