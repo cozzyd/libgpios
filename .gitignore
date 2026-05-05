@@ -1,0 +1,5 @@
+include/libgpios.h
+*.so*
+examples/gpios-get
+examples/gpios-set
+*.o
