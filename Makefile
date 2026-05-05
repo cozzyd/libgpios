@@ -1,6 +1,7 @@
 CFLAGS?=-Wall -Wextra -O2
 LIB = libgpios.so
-VERSIONED_LIB = libgpios.so.1
+SONUM=1
+VERSIONED_LIB = libgpios.so.$(SONUM)
 SRC = src/libgpios.c
 OBJ = $(SRC:.c=.o)
 PREFIX?=/usr/local
@@ -22,7 +23,8 @@ src/%.o: src/%.c include/libgpios.h
 examples: examples/gpios-set examples/gpios-get
 
 examples/%: examples/%.c $(LIB)
-	$(CC) $(CFLAGS)  -Iinclude $< -o $@ -L. -lgpios $(LDFLAGS)
+	$(CC) $(CFLAGS)  -Iinclude $< -o $@ -L. -l:$(VERSIONED_LIB) $(LDFLAGS)
+
 
 clean:
 	rm -f $(OBJ) $(LIB) examples/gpios-set examples/gpios-get
