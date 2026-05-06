@@ -43,8 +43,8 @@ clean:
 install: $(LIB) examples
 	install -d $(DESTDIR)$(PREFIX)/$(LIBDIR)
 	install -m 0755 $(VERSIONED_LIB) $(DESTDIR)$(PREFIX)/$(LIBDIR)/
-	ln -sf $(DESTDIR)$(PREFIX)/$(LIBDIR)/$(VERSIONED_LIB) $(DESTDIR)$(PREFIX)/$(LIBDIR)/$(NAMED_LIB)
-	ln -sf $(DESTDIR)$(PREFIX)/$(LIBDIR)/$(NAMED_LIB) $(DESTDIR)$(PREFIX)/$(LIBDIR)/$(LIB)
+	ln -sfr $(DESTDIR)$(PREFIX)/$(LIBDIR)/$(VERSIONED_LIB) $(DESTDIR)$(PREFIX)/$(LIBDIR)/$(NAMED_LIB)
+	ln -sfr $(DESTDIR)$(PREFIX)/$(LIBDIR)/$(NAMED_LIB) $(DESTDIR)$(PREFIX)/$(LIBDIR)/$(LIB)
 	install -d $(DESTDIR)$(PREFIX)/$(INCDIR)
 	install -m 0644 include/libgpios.h $(DESTDIR)$(PREFIX)/$(INCDIR)/
 	install -d $(DESTDIR)$(PREFIX)/$(BINDIR)
