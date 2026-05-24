@@ -2,10 +2,10 @@ CFLAGS?=-Wall -Wextra -O2
 LIB = libgpios.so
 SONUM_MAJOR=0
 SONUM_MINOR=1
+SONUM_REV=0
 LIBDIR?=lib
 INCDIR?=include
 BINDIR?=bin
-SONUM_REV=0
 VERSIONED_LIB = $(LIB).$(SONUM_MAJOR).$(SONUM_MINOR).$(SONUM_REV)
 NAMED_LIB = $(LIB).$(SONUM_MAJOR)
 SRC = src/libgpios.c
@@ -17,7 +17,7 @@ PREFIX?=/usr/local
 all: $(LIB) examples
 
 $(VERSIONED_LIB): $(OBJ)
-	 $(CC) -shared $(LDFLAGS) -Wl,-soname,$@ -o $@ $^
+	 $(CC) -shared $(LDFLAGS) -Wl,-soname,$(NAMED_LIB) -o $@ $^
 
 $(NAMED_LIB): $(VERSIONED_LIB)
 	ln -sf  $< $@
