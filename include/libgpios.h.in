@@ -17,9 +17,9 @@
 #include <time.h>
 #include <stdbool.h>
 
-#define GPIOS_VERSION_MAJOR 0
-#define GPIOS_VERSION_MINOR 1
-#define GPIOS_VERSION_REV 1
+#define GPIOS_VERSION_MAJOR @@
+#define GPIOS_VERSION_MINOR @@
+#define GPIOS_VERSION_REV @@
 
 /**
  * @brief Handle for a GPIO line.
