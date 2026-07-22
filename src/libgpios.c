@@ -263,6 +263,39 @@ int gpios_get_line_by_dev_offset(const char * dev, uint32_t offset, gpios_line_t
     if (flags & GPIOS_ACTIVE_LOW) req.config.flags |= GPIO_V2_LINE_FLAG_ACTIVE_LOW;
 
 
+    // if we keep, open line with same flags other than output, so active/low etc. is maintained
+    if ((flags & GPIOS_OUTPUT)  && (flags & GPIOS_KEEP))
+    {
+      //temporarily open without output to get current state
+      req.config.flags &= ~GPIO_V2_LINE_FLAG_OUTPUT;
+
+      if (ioctl(chip_fd, GPIO_V2_GET_LINE_IOCTL, &req) < 0) {
+          int err = -errno;
+          close(chip_fd);
+          return err;
+      }
+
+      struct gpio_v2_line_values vals = {.mask =1};
+      if (ioctl(req.fd, GPIO_V2_LINE_GET_VALUES_IOCTL, &vals) < 0)
+      {
+        close(chip_fd);
+        close(req.fd);
+        return -errno;
+      }
+
+      //set the output value atribute properly
+      req.config.num_attrs = 1;
+      req.config.attrs[0].attr.id = GPIO_V2_LINE_ATTR_ID_OUTPUT_VALUES;
+      req.config.attrs[0].attr.values  = vals.bits;
+      req.config.attrs[0].mask = 1;
+
+      close(req.fd);
+      //now reopen normally, after we have set the attribute
+      req.config.flags |= GPIO_V2_LINE_FLAG_OUTPUT;
+    }
+
+
+
     if (ioctl(chip_fd, GPIO_V2_GET_LINE_IOCTL, &req) < 0) {
         int err = -errno;
         close(chip_fd);

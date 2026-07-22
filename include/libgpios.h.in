@@ -56,7 +56,8 @@ enum gpios_e_flags
   GPIOS_POLL_FALLING        = 1<<3,  // allow polling on falling (logic low)
   GPIOS_POLL_CLOCK_REALTIME = 1<<4,   // when retrieiving events, use realtime instead of monotonic time
   GPIOS_OPEN_DRAIN          = 1<<5,
-  GPIOS_OPEN_SOURCE         = 1<<6
+  GPIOS_OPEN_SOURCE         = 1<<6,
+  GPIOS_KEEP                = 1<<7  //if output, first grab the value and set it before setting as output, keeping it and potentially avoiding glitches
 };
 
 /**
