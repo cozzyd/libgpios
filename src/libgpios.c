@@ -266,20 +266,21 @@ int gpios_get_line_by_dev_offset(const char * dev, uint32_t offset, gpios_line_t
     // if we keep, open line with same flags other than output, so active/low etc. is maintained
     if ((flags & GPIOS_OUTPUT)  && (flags & GPIOS_KEEP))
     {
-      //temporarily open without output to get current state
-      req.config.flags &= ~GPIO_V2_LINE_FLAG_OUTPUT;
+      struct gpio_v2_line_request tmpreq = { 0};
+      if (flags & GPIOS_ACTIVE_LOW) tmpreq.config.flags |= GPIO_V2_LINE_FLAG_ACTIVE_LOW;
 
-      if (ioctl(chip_fd, GPIO_V2_GET_LINE_IOCTL, &req) < 0) {
+
+      if (ioctl(chip_fd, GPIO_V2_GET_LINE_IOCTL, &tmpreq) < 0) {
           int err = -errno;
           close(chip_fd);
           return err;
       }
 
       struct gpio_v2_line_values vals = {.mask =1};
-      if (ioctl(req.fd, GPIO_V2_LINE_GET_VALUES_IOCTL, &vals) < 0)
+      if (ioctl(tmpreq.fd, GPIO_V2_LINE_GET_VALUES_IOCTL, &vals) < 0)
       {
         close(chip_fd);
-        close(req.fd);
+        close(tmpreq.fd);
         return -errno;
       }
 
@@ -289,9 +290,7 @@ int gpios_get_line_by_dev_offset(const char * dev, uint32_t offset, gpios_line_t
       req.config.attrs[0].attr.values  = vals.bits;
       req.config.attrs[0].mask = 1;
 
-      close(req.fd);
-      //now reopen normally, after we have set the attribute
-      req.config.flags |= GPIO_V2_LINE_FLAG_OUTPUT;
+      close(tmpreq.fd);
     }
 
 
