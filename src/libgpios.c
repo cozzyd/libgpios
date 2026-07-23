@@ -267,6 +267,8 @@ int gpios_get_line_by_dev_offset(const char * dev, uint32_t offset, gpios_line_t
     if ((flags & GPIOS_OUTPUT)  && (flags & GPIOS_KEEP))
     {
       struct gpio_v2_line_request tmpreq = { 0};
+      tmpreq.num_lines = 1;
+      tmpreq.offsets[0] = offset;
       if (flags & GPIOS_ACTIVE_LOW) tmpreq.config.flags |= GPIO_V2_LINE_FLAG_ACTIVE_LOW;
 
 
